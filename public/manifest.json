@@ -5,5 +5,5 @@
   "author":"DawnWatcherL",
   "description":"GM 将地图 Token 标记为隐藏或公开传送锚点，并传送已启用 Smoke 视野的角色。",
   "icon":"https://dawnwatcherl.github.io/obr-token-teleporter/icon.svg",
-  "action":{"title":"Token 传送器","icon":"https://dawnwatcherl.github.io/obr-token-teleporter/icon.svg","popover":"https://dawnwatcherl.github.io/obr-token-teleporter/index.html","width":390,"height":620}
+  "action":{"title":"集合石","icon":"https://dawnwatcherl.github.io/obr-token-teleporter/icon.svg","popover":"https://dawnwatcherl.github.io/obr-token-teleporter/index.html","width":390,"height":620}
 }
