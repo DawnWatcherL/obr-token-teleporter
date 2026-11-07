@@ -1,0 +1,6 @@
+{
+  "name":"obr-token-teleporter","version":"0.1.0","private":true,"type":"module",
+  "scripts":{"build":"tsc --noEmit && vite build"},
+  "dependencies":{"@owlbear-rodeo/sdk":"^3.1.0"},
+  "devDependencies":{"typescript":"^5.7.3","vite":"^6.2.0"}
+}
