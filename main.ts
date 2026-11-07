@@ -68,7 +68,7 @@ async function refresh() {
 
 function render(characters: Item[], anchors: Item[]) {
   app.innerHTML = `
-    <header><h2>✦ Token 传送器</h2><span>GM 专用</span></header>
+    <header><h2>✦ 集合石</h2><span>GM 专用</span></header>
     <p class="help">右键地图上的图片 Token →「设置 / 取消传送点」。隐藏的锚点也会出现在这里。</p>
     <div class="heading"><strong>① 选择需要传送的角色</strong><button id="reload" class="small">刷新</button></div>
     <div class="list">${characters.length ? characters.map(item => `<label class="item"><input type="checkbox" data-token="${escapeHtml(item.id)}" ${selected.has(item.id)?'checked':''}><span><b>${escapeHtml(item.name || '未命名角色')}</b><small>普通视野 ${num(item.metadata[VISION])} · 黑暗视觉 ${num(item.metadata[DARK]) ?? 0}</small></span></label>`).join('') : '<p class="empty">未找到启用 Smoke & Spectre! 视野的 Character Token。</p>'}</div>
