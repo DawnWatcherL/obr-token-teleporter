@@ -115,12 +115,34 @@ async function teleport() {
         y: anchor.position.y + (row - (rows-1)/2) * spacing,
       });
     });
-    await OBR.scene.items.updateItems([...placements.keys()], drafts => {
-      for (const item of drafts) {
-        const position = placements.get(item.id);
-        if (position) item.position = position;
+    // Full Suite portal technique: temporarily hide tokens before changing
+    // their positions to bypass wall/collision listeners, then restore visibility.
+    // Preserve each token's original visible flag (including already-hidden tokens).
+    const visibility = new Map(moving.map(item => [item.id, item.visible]));
+    const movingIds = [...placements.keys()];
+    let hidden = false;
+    try {
+      await OBR.scene.items.updateItems(movingIds, drafts => {
+        for (const item of drafts) item.visible = false;
+      });
+      hidden = true;
+      await OBR.scene.items.updateItems(movingIds, drafts => {
+        for (const item of drafts) {
+          const position = placements.get(item.id);
+          if (position) item.position = position;
+        }
+      });
+    } finally {
+      // Even if the position update fails, never leave characters hidden.
+      if (hidden) {
+        await OBR.scene.items.updateItems(movingIds, drafts => {
+          for (const item of drafts) {
+            const original = visibility.get(item.id);
+            if (original !== undefined) item.visible = original;
+          }
+        });
       }
-    });
+    }
     message = `已将 ${moving.length} 个角色传送至「${anchor.name || '未命名传送点'}」。`;
   } catch (error) {
     message = '传送失败：' + String(error);
