@@ -115,33 +115,94 @@ async function teleport() {
         y: anchor.position.y + (row - (rows-1)/2) * spacing,
       });
     });
-    // Full Suite portal technique: temporarily hide tokens before changing
-    // their positions to bypass wall/collision listeners, then restore visibility.
-    // Preserve each token's original visible flag (including already-hidden tokens).
-    const visibility = new Map(moving.map(item => [item.id, item.visible]));
+    // Full Suite portal bypass: remove collision-sensitive Smoke metadata,
+    // hide attached vision objects, hide tokens, move, then restore ALL state.
     const movingIds = [...placements.keys()];
-    let hidden = false;
+    const smokeSnapshots = new Map<string, Record<string, unknown>>();
+    const visibleSnapshots = new Map(moving.map(item => [item.id, item.visible]));
+    const attachmentVisible = new Map<string, boolean>();
+    const localAttachmentVisible = new Map<string, boolean>();
+    let attachedIds: string[] = [];
+    let localAttachedIds: string[] = [];
     try {
-      await OBR.scene.items.updateItems(movingIds, drafts => {
-        for (const item of drafts) item.visible = false;
-      });
-      hidden = true;
-      await OBR.scene.items.updateItems(movingIds, drafts => {
-        for (const item of drafts) {
-          const position = placements.get(item.id);
-          if (position) item.position = position;
+      for (const item of moving) {
+        const snap: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(item.metadata)) {
+          const k = key.toLowerCase();
+          if (k.includes('smoke') || k.includes('spectre') || k.includes('specter') || k.includes('battle-system')) {
+            snap[key] = value;
+          }
         }
-      });
-    } finally {
-      // Even if the position update fails, never leave characters hidden.
-      if (hidden) {
-        await OBR.scene.items.updateItems(movingIds, drafts => {
+        if (Object.keys(snap).length) smokeSnapshots.set(item.id, snap);
+      }
+      if (smokeSnapshots.size) {
+        await OBR.scene.items.updateItems([...smokeSnapshots.keys()], drafts => {
           for (const item of drafts) {
-            const original = visibility.get(item.id);
-            if (original !== undefined) item.visible = original;
+            for (const key of Object.keys(smokeSnapshots.get(item.id) ?? {})) delete item.metadata[key];
           }
         });
       }
+      const attachments = await OBR.scene.items.getItemAttachments(movingIds);
+      attachedIds = attachments.map(item => item.id);
+      for (const item of attachments) attachmentVisible.set(item.id, item.visible);
+      if (attachedIds.length) {
+        await OBR.scene.items.updateItems(attachedIds, drafts => {
+          for (const item of drafts) item.visible = false;
+        });
+      }
+      // Full Suite also handles local attachments, when available.
+      try {
+        const local = await OBR.scene.local.getItemAttachments(movingIds);
+        localAttachedIds = local.map(item => item.id);
+        for (const item of local) localAttachmentVisible.set(item.id, item.visible);
+        if (localAttachedIds.length) {
+          await OBR.scene.local.updateItems(localAttachedIds, drafts => {
+            for (const item of drafts) item.visible = false;
+          });
+        }
+      } catch (error) {
+        console.warn('[Token Teleporter] Local attachments unavailable', error);
+      }
+      await OBR.scene.items.updateItems(movingIds, drafts => {
+        for (const item of drafts) item.visible = false;
+      });
+      await OBR.scene.items.updateItems(movingIds, drafts => {
+        for (const item of drafts) {
+          const pos = placements.get(item.id);
+          if (pos) item.position = pos;
+        }
+      });
+    } finally {
+      // Restore in reverse order even if the move fails.
+      try {
+        await OBR.scene.items.updateItems(movingIds, drafts => {
+          for (const item of drafts) {
+            const original = visibleSnapshots.get(item.id);
+            if (original !== undefined) item.visible = original;
+          }
+        });
+      } catch (error) { console.error('[Token Teleporter] Restore token visibility failed', error); }
+      try {
+        if (attachedIds.length) await OBR.scene.items.updateItems(attachedIds, drafts => {
+          for (const item of drafts) {
+            const original = attachmentVisible.get(item.id);
+            if (original !== undefined) item.visible = original;
+          }
+        });
+        if (localAttachedIds.length) await OBR.scene.local.updateItems(localAttachedIds, drafts => {
+          for (const item of drafts) {
+            const original = localAttachmentVisible.get(item.id);
+            if (original !== undefined) item.visible = original;
+          }
+        });
+      } catch (error) { console.error('[Token Teleporter] Restore attachments failed', error); }
+      try {
+        if (smokeSnapshots.size) await OBR.scene.items.updateItems([...smokeSnapshots.keys()], drafts => {
+          for (const item of drafts) {
+            Object.assign(item.metadata, smokeSnapshots.get(item.id) ?? {});
+          }
+        });
+      } catch (error) { console.error('[Token Teleporter] Restore Smoke metadata failed', error); }
     }
     message = `已将 ${moving.length} 个角色传送至「${anchor.name || '未命名传送点'}」。`;
   } catch (error) {
